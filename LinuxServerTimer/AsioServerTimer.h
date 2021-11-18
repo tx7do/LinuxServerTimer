@@ -1,8 +1,7 @@
-
 #pragma once
 
-#include "IServerTimer.h"
 
+#include "IServerTimer.h"
 #include <thread>
 #include <mutex>
 #include <unordered_map>
@@ -11,17 +10,20 @@
 #include <string.h>
 #include "Event.h"
 
+#include <boost/asio.hpp>
+#include <boost/thread.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>  
 
-class CEpollfdServerTimer : public IServerTimer
+
+class CAsioServerTimer : public IServerTimer
 {
-public:
 	struct ServerTimerItem
 	{
-		int iTimerFD;
-
 		unsigned int iTimerID;
 		unsigned int iElapse;
 		bool bShootOnce;
+
+		boost::asio::steady_timer* t;
 
 		mutable std::mutex _mutex;
 
@@ -31,10 +33,10 @@ public:
 		}
 		void clear()
 		{
-			iTimerFD = -1;
 			iTimerID = 0;
 			iElapse = 0;
 			bShootOnce = true;
+			t = nullptr;
 		}
 	};
 	typedef ServerTimerItem* ServerTimerItemPtr;
@@ -42,11 +44,10 @@ public:
 	typedef std::vector<ServerTimerItemPtr> ServerTimerItemPtrArray;
 
 public:
-	CEpollfdServerTimer();
-	virtual ~CEpollfdServerTimer();
+	CAsioServerTimer();
+	virtual ~CAsioServerTimer();
 
-public:
-	virtual ServerTimerType GetType() const { return ServerTimerType_Epollfd; }
+	virtual ServerTimerType GetType() const { return ServerTimerType_Asio; }
 
 	virtual void RegisterListener(IServerTimerListener* pListener);
 
@@ -54,12 +55,17 @@ public:
 
 	virtual void Stop();
 
-public:
 	virtual void SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce = true);
 
 	virtual void KillTimer(unsigned int iTimerID);
 
 	virtual void KillAllTimer();
+
+protected:
+	// 启动定时器工作线程
+	void startThread();
+	// 停止定时器工作线程
+	void stopThread();
 
 protected:
 	// 是否存在这个定时器
@@ -68,30 +74,21 @@ protected:
 	// 销毁定时器池的项
 	void destroyTimerItemPool();
 
-private:
-	bool createEpoll();
-	bool destroyEpoll();
-
-	bool destroyTimerfd(int iEpollFD, int iTimerFD);
-
-	bool createThread();
-	bool destroyThread();
-
 protected:
 	void onThread();
-	void onThreadStartBefore();
-	void onThreadStartEnd();
 
-private:
-	IServerTimerListener* _listener;
-	std::atomic<bool> _running;
+	void onTimeOut(boost::system::error_code ec, ServerTimerItemPtr pm);
 
-	int _epoll_fd;
-
-	ServerTimerItemPtrMap _items;
-	ServerTimerItemPtrArray _itemPool;
+protected:
+	boost::asio::io_context _ioc;
 
 	std::thread* _thread;
 	mutable std::mutex _mutex;
 	CEvent _evThreadStarted;
+	std::atomic<bool> _running;
+
+	ServerTimerItemPtrMap _items;
+	ServerTimerItemPtrArray _itemPool;
+
+	IServerTimerListener* _listener;
 };

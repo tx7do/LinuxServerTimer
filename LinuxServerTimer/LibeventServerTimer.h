@@ -8,6 +8,7 @@
 #include <mutex>
 #include <unordered_map>
 #include <vector>
+#include <atomic>
 
 #include <event2/event.h>
 #include <event2/event_struct.h>
@@ -100,7 +101,7 @@ private:
 	std::thread* _thread;
 	mutable std::mutex _mutex;
 	CEvent _evThreadStarted;
-	bool _running;
+	std::atomic<bool> _running;
 
 	ServerTimerItemPtrMap _items;
 	ServerTimerItemPtrArray _itemPool;

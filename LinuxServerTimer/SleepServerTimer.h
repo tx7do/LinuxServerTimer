@@ -6,6 +6,7 @@
 #include <mutex>
 #include <unordered_map>
 #include <vector>
+#include <atomic>
 #include "Event.h"
 
 
@@ -70,7 +71,7 @@ private:
 	std::thread* _thread;
 	mutable std::mutex _mutex;
 	IServerTimerListener* _listener;
-	bool _running;
+	std::atomic<bool> _running;
 	CEvent _evThreadWait;
 	CEvent _evThreadStarted;
 

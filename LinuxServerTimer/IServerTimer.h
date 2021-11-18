@@ -10,6 +10,7 @@ enum ServerTimerType
 	ServerTimerType_Libevent = 1,
 	ServerTimerType_Epollfd = 2,
 	ServerTimerType_Sleep = 3,
+	ServerTimerType_Asio = 4,
 };
 
 

@@ -15,7 +15,7 @@ public:
 
 		evutil_gettimeofday(&g_lasttime, nullptr);
 
-		pITimer = CreateServerTimer(ServerTimerType_Epollfd);
+		pITimer = CreateServerTimer(ServerTimerType_Asio);
 		pITimer->RegisterListener(this);
 	}
 	~CServer()
