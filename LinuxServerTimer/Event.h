@@ -1,7 +1,8 @@
 #pragma once
 
-#include <pthread.h>
-#include <errno.h>
+#include <condition_variable>
+#include <mutex>
+#include <atomic>
 
 
 class CEvent
@@ -32,9 +33,9 @@ private:
 	CEvent& operator = (const CEvent&);
 
 private:
-	bool            _auto;
-	volatile bool   _state;
-	pthread_mutex_t _mutex;
-	pthread_cond_t  _cond;
+	std::atomic_bool  _auto;
+	std::atomic_bool  _state;
+	std::mutex  _mutex;
+	std::condition_variable  _cond;
 };
 

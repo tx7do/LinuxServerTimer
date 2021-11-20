@@ -1,104 +1,65 @@
 #include "Event.h"
 #include <time.h>
 #include <sys/time.h>
-#include <exception>
-#include <stdexcept>
+#include <errno.h>
 
 CEvent::CEvent(EventType type)
 	: _auto(type == EVENT_AUTORESET)
 	, _state(false)
 {
-	if (::pthread_mutex_init(&_mutex, NULL))
-	{
-		throw std::runtime_error("cannot create event (mutex)");
-	}
-
-	if (::pthread_cond_init(&_cond, NULL))
-	{
-		::pthread_mutex_destroy(&_mutex);
-		throw std::runtime_error("cannot create event (condition)");
-	}
 }
 
 
 CEvent::~CEvent()
 {
-	::pthread_cond_destroy(&_cond);
-	::pthread_mutex_destroy(&_mutex);
 }
 
 void CEvent::set()
 {
-	if (::pthread_mutex_lock(&_mutex))
-		throw std::runtime_error("cannot signal event (lock)");
-	_state = true;
-	if (::pthread_cond_broadcast(&_cond))
-	{
-		::pthread_mutex_unlock(&_mutex);
-		throw std::runtime_error("cannot signal event");
-	}
-	::pthread_mutex_unlock(&_mutex);
+	std::unique_lock<std::mutex> lock(_mutex);
+	_cond.notify_all();
 }
 
 void CEvent::wait()
 {
-	if (::pthread_mutex_lock(&_mutex))
-		throw std::runtime_error("wait for event failed (lock)");
+	std::unique_lock<std::mutex> lock(_mutex);
 	while (!_state)
 	{
-		if (pthread_cond_wait(&_cond, &_mutex))
-		{
-			::pthread_mutex_unlock(&_mutex);
-			throw std::runtime_error("wait for event failed");
-		}
+		_cond.wait(lock);
 	}
-	if (_auto)
-		_state = false;
-	::pthread_mutex_unlock(&_mutex);
+	//_cond.wait(lock, [this] {return _state; });
+
+	if (_auto) _state = false;
 }
 
 
 void CEvent::wait(long milliseconds)
 {
 	if (!tryWait(milliseconds))
-		throw std::runtime_error("event wait time out");
+		throw std::runtime_error("wait for event failed");
 }
 
 bool CEvent::tryWait(long milliseconds)
 {
-	int rc = 0;
-	struct timespec abstime;
+	auto rc = std::cv_status::no_timeout;
+	std::unique_lock<std::mutex> lock(_mutex);
 
-	::clock_gettime(CLOCK_MONOTONIC, &abstime);
-	abstime.tv_sec += milliseconds / 1000;
-	abstime.tv_nsec += (milliseconds % 1000) * 1000000;
-	if (abstime.tv_nsec >= 1000000000)
-	{
-		abstime.tv_nsec -= 1000000000;
-		abstime.tv_sec++;
-	}
-
-	if (::pthread_mutex_lock(&_mutex) != 0)
-		throw std::runtime_error("wait for event failed (lock)");
+	auto timeout_time = std::chrono::steady_clock::now() + std::chrono::milliseconds(milliseconds);
 	while (!_state)
 	{
-		if ((rc = ::pthread_cond_timedwait(&_cond, &_mutex, &abstime)))
+		if (_cond.wait_until(lock, timeout_time) == std::cv_status::timeout)
 		{
-			if (rc == ETIMEDOUT) break;
-			::pthread_mutex_unlock(&_mutex);
-			throw std::runtime_error("cannot wait for event");
+			break;
 		}
 	}
-	if (rc == 0 && _auto) _state = false;
-	::pthread_mutex_unlock(&_mutex);
-	return rc == 0;
+
+	if (rc == std::cv_status::no_timeout && _auto) _state = false;
+	return rc == std::cv_status::no_timeout;
 }
 
 
 void CEvent::reset()
 {
-	if (::pthread_mutex_lock(&_mutex))
-		throw std::runtime_error("cannot reset event");
+	std::unique_lock<std::mutex> lock(_mutex);
 	_state = false;
-	::pthread_mutex_unlock(&_mutex);
 }
