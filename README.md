@@ -2,12 +2,19 @@
 
 本项目使用VS2022+WSL2(Ubuntu)开发调试,主要是为了实验一下使用VS2022开发一下Linux程序是什么感觉,总的来说,感觉还行.
 
-本项目封装了4种方式实现:
+本项目封装了4种实现方式：
 
-1. 使用usleep的低精度低性能定时器;  
-2. 使用timerfd和epoll的高性能定时器;  
-3. 使用libevent库实现的高性能定时器;
-4. 使用boost::asio实现的高性能定时器.
+1. 使用sleep实现的低精度低性能定时器；
+2. 使用timerfd和epoll实现的高精度高性能定时器；  
+3. 使用libevent2实现的高精度高性能定时器；
+4. 使用boost::asio实现的高精度高性能定时器。
+
+## 安装依赖库
+
+```bash
+sudo apt-get install libevent-dev
+sudo apt-get install libboost-all-dev
+```
 
 ## 使用方法
 
@@ -25,5 +32,5 @@ pITimer->KillTimer(88);
 // 杀掉所有的定时器
 pITimer->KillAllTimer();
 // 销毁定时器
-DestoryServerTimer(pITimer);
+DestroyServerTimer(pITimer);
 ```

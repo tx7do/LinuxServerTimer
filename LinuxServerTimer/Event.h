@@ -5,7 +5,7 @@
 #include <atomic>
 
 
-class CEvent
+class CEvent final
 {
 public:
 	enum EventType
@@ -16,8 +16,7 @@ public:
 
 	explicit CEvent(EventType type = EVENT_AUTORESET);
 
-	~CEvent();
-
+public:
 	void set();
 
 	void wait();
@@ -30,12 +29,13 @@ public:
 
 private:
 	CEvent(const CEvent&);
-	CEvent& operator = (const CEvent&);
+	CEvent& operator=(const CEvent&);
 
 private:
-	std::atomic_bool  _auto;
-	std::atomic_bool  _state;
-	std::mutex  _mutex;
-	std::condition_variable  _cond;
+	bool _auto;
+	volatile bool _ready;
+
+	std::mutex _mutex;
+	std::condition_variable _cond;
 };
 

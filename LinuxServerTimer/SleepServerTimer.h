@@ -10,19 +10,17 @@
 #include "Event.h"
 
 
-class CSleepServerTimer : public IServerTimer
+class CSleepServerTimer final : public IServerTimer
 {
 public:
 	struct ServerTimerItem
 	{
-		unsigned int iTimerID;
-		unsigned int iElapse;	// ¶¨Ê±Æ÷¼ä¸ô£¨µ¥Î»ºÁÃë£©
-		long long iStartTime;	// ÆğÊ¼Ê±¼ä£¨µ¥Î»ºÁÃë£©
-		bool bShootOnce;
-		ServerTimerItem()
-		{
-			clear();
-		}
+		unsigned int iTimerID{};
+		unsigned int iElapse{};    // å®šæ—¶å™¨é—´éš”ï¼ˆå•ä½æ¯«ç§’ï¼‰
+		long long iStartTime{};    // èµ·å§‹æ—¶é—´ï¼ˆå•ä½æ¯«ç§’ï¼‰
+		bool bShootOnce{};
+
+		ServerTimerItem() = default;
 		void clear()
 		{
 			iTimerID = 0;
@@ -37,31 +35,35 @@ public:
 
 public:
 	CSleepServerTimer();
-	virtual ~CSleepServerTimer();
+	~CSleepServerTimer() final;
 
-	virtual ServerTimerType GetType() const { return ServerTimerType_Sleep; }
+public:
+	ServerTimerType GetType() const final
+	{
+		return ServerTimerType_Sleep;
+	}
 
-	virtual void RegisterListener(IServerTimerListener* pListener);
+	void RegisterListener(IServerTimerListener* pListener) final;
 
-	virtual void Start();
+	void Start() final;
 
-	virtual void Stop();
+	void Stop() final;
 
-	virtual void SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce = true);
+	void SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce) final;
 
-	virtual void KillTimer(unsigned int iTimerID);
+	void KillTimer(unsigned int iTimerID) final;
 
-	virtual void KillAllTimer();
+	void KillAllTimer() final;
 
 protected:
 	void startThread();
 	void stopThread();
 
 protected:
-	// ÊÇ·ñ´æÔÚÕâ¸ö¶¨Ê±Æ÷
+	// æ˜¯å¦å­˜åœ¨è¿™ä¸ªå®šæ—¶å™¨
 	bool isExistTimer(unsigned int iTimerID) const;
 
-	// Ïú»Ù¶¨Ê±Æ÷³ØµÄÏî
+	// é”€æ¯å®šæ—¶å™¨æ± çš„é¡¹
 	void destroyTimerItemPool();
 
 protected:
@@ -79,5 +81,5 @@ private:
 	ServerTimerItemPtrArray _itemPool;
 
 private:
-	static unsigned int				s_iResolution;		///< ÑÓÊ±µÄ¾«¶È£¬µ¥Î»£ººÁÃë
+	static time_t s_iResolution;        ///< å»¶æ—¶çš„ç²¾åº¦ï¼Œå•ä½ï¼šæ¯«ç§’
 };

@@ -1,21 +1,9 @@
 
 #include "LibeventServerTimer.h"
 
-#include <sys/types.h>
-#include <event2/event-config.h>
-#include <sys/stat.h>
-#include <time.h>
-#ifdef EVENT__HAVE_SYS_TIME_H
-#include <sys/time.h>
-#endif
-#include <fcntl.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
 #include <thread>
 #include <iostream>
-#include <assert.h>
+#include <cassert>
 
 #include <event2/event.h>
 #include <event2/event_struct.h>
@@ -81,7 +69,7 @@ void CLibeventServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse,
 	assert(_base);
 	struct event* ev = ::event_new(_base, -1, bShootOnce ? 0 : EV_PERSIST, CLibeventServerTimer::onEvent, item);
 
-	struct timeval tv;
+	struct timeval tv{};
 	tv.tv_sec = 0;
 	tv.tv_usec = iElapse * 1000;
 	::event_add(ev, &tv);
@@ -115,8 +103,6 @@ void CLibeventServerTimer::KillTimer(unsigned int iTimerID)
 
 	_itemPool.push_back(item);
 	_items.erase(iter);
-
-	return;
 }
 
 void CLibeventServerTimer::KillAllTimer()
@@ -206,7 +192,7 @@ void CLibeventServerTimer::stopThread()
 
 void CLibeventServerTimer::onEvent(evutil_socket_t fd, short event, void* arg)
 {
-	struct CLibeventServerTimer::ServerTimerItem* pParam = (struct CLibeventServerTimer::ServerTimerItem*)arg;
+	auto* pParam = (struct CLibeventServerTimer::ServerTimerItem*)arg;
 	assert(pParam);
 	assert(pParam->pParent);
 

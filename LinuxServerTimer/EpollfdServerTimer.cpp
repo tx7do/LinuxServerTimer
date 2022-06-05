@@ -1,17 +1,12 @@
 
 #include "EpollfdServerTimer.h"
 
-#include <stdlib.h>
 #include <cstdio>
-#include <cstdlib>
 #include <unistd.h>
-#include <stdint.h>
+#include <cstdint>
 #include <algorithm>
-#include <assert.h>
-#include <errno.h>
-#include <inttypes.h>
-#include <stdio.h>
-#include <string.h>
+#include <cassert>
+#include <cerrno>
 
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
@@ -25,7 +20,7 @@ static char* itimerspec_dump(struct itimerspec* ts)
 	static char buf[1024];
 
 	snprintf(buf, sizeof(buf),
-		"itimer: [ interval=%lu s %lu ns, next expire=%lu s %lu ns ]",
+		"timer: [ interval=%lu s %lu ns, next expire=%lu s %lu ns ]",
 		ts->it_interval.tv_sec,
 		ts->it_interval.tv_nsec,
 		ts->it_value.tv_sec,
@@ -36,15 +31,13 @@ static char* itimerspec_dump(struct itimerspec* ts)
 }
 
 CEpollfdServerTimer::CEpollfdServerTimer()
-	: _listener(nullptr)
-	, _running(false)
-	, _epoll_fd(-1)
+	: _listener(nullptr), _running(false), _epoll_fd(-1)
 {
 }
 
 CEpollfdServerTimer::~CEpollfdServerTimer()
 {
-	KillAllTimer();
+//	KillAllTimer();
 	destroyEpoll();
 	destroyThread();
 	destroyTimerItemPool();
@@ -100,14 +93,14 @@ void CEpollfdServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse, 
 	item->bShootOnce = bShootOnce;
 	_items[iTimerID] = item;
 
-	struct timespec nw;
+	struct timespec nw{};
 	if (::clock_gettime(CLOCK_MONOTONIC, &nw) != 0)
 	{
 		perror("clock_gettime() error");
 		return;
 	}
 
-	struct itimerspec ts;
+	struct itimerspec ts{};
 	ts.it_value.tv_sec = iElapse / 1000;
 	ts.it_value.tv_nsec = (iElapse % 1000) * 1000000;
 	ts.it_interval.tv_sec = bShootOnce ? 0 : (iElapse / 1000);
@@ -118,7 +111,7 @@ void CEpollfdServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse, 
 		return;
 	}
 
-	struct epoll_event ev;
+	struct epoll_event ev{};
 	ev.events = EPOLLIN;
 	ev.data.ptr = item;
 	if (::epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1)
@@ -149,8 +142,6 @@ void CEpollfdServerTimer::KillTimer(unsigned int iTimerID)
 
 	_itemPool.push_back(item);
 	_items.erase(iter);
-
-	return;
 }
 
 void CEpollfdServerTimer::KillAllTimer()
@@ -293,7 +284,7 @@ void CEpollfdServerTimer::onThread()
 
 		for (int i = 0; i < fireEvents; ++i)
 		{
-			struct ServerTimerItem* pm = (struct ServerTimerItem*)(events[i].data.ptr);
+			auto* pm = (struct ServerTimerItem*)(events[i].data.ptr);
 			//printf("timeout %d : %d\n", pm->iTimerID, pm->iElapse);
 
 			iTimerFD = pm->iTimerFD;

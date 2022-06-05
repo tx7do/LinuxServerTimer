@@ -2,9 +2,7 @@
 #include "AsioServerTimer.h"
 
 CAsioServerTimer::CAsioServerTimer()
-	: _thread(nullptr)
-	, _running(false)
-	, _listener(nullptr)
+	: _thread(nullptr), _running(false), _listener(nullptr)
 {
 }
 
@@ -89,8 +87,6 @@ void CAsioServerTimer::KillTimer(unsigned int iTimerID)
 
 	_itemPool.push_back(item);
 	_items.erase(iter);
-
-	return;
 }
 
 void CAsioServerTimer::KillAllTimer()

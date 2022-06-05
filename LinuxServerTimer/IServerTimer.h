@@ -1,93 +1,66 @@
-
-
 #pragma once
 
-/// <summary>
-/// ·şÎñÆ÷¶¨Ê±Æ÷ÀàĞÍ
-/// </summary>
+
+/// æœåŠ¡å™¨å®šæ—¶å™¨ç±»å‹
 enum ServerTimerType
 {
-	ServerTimerType_Libevent = 1,
-	ServerTimerType_Epollfd = 2,
-	ServerTimerType_Sleep = 3,
-	ServerTimerType_Asio = 4,
+	ServerTimerType_Libevent = 1,// libeventå®šæ—¶å™¨
+	ServerTimerType_Epollfd = 2,// epollfdå®šæ—¶å™¨
+	ServerTimerType_Sleep = 3,// Sleepå®šæ—¶å™¨
+	ServerTimerType_Asio = 4,// Asioå®šæ—¶å™¨
 };
 
-
-/// <summary>
-/// ·şÎñÆ÷¶¨Ê±Æ÷¼àÌıÆ÷½Ó¿Ú
-/// </summary>
+/// æœåŠ¡å™¨å®šæ—¶å™¨ç›‘å¬å™¨æ¥å£
 class IServerTimerListener
 {
 public:
-	virtual ~IServerTimerListener() {}
+	virtual ~IServerTimerListener() = default;
 
-	/// <summary>
-	/// ¶¨Ê±Æ÷»Øµ÷
-	/// </summary>
+	/// å®šæ—¶å™¨å›è°ƒ
+	/// @param iTimerID å®šæ—¶å™¨ID
+	/// @param iElapse å®šæ—¶å™¨è§¦å‘æ—¶é—´
 	virtual void OnTimer(unsigned int iTimerID, unsigned int iElapse) = 0;
 };
 
-
-/// <summary>
-///	·şÎñÆ÷¶¨Ê±Æ÷½Ó¿Ú
-/// </summary>
+///	æœåŠ¡å™¨å®šæ—¶å™¨æ¥å£
 class IServerTimer
 {
 public:
-	virtual ~IServerTimer() {}
+	virtual ~IServerTimer() = default;
 
-	/// <summary>
-	///	»ñÈ¡·şÎñÆ÷¶¨Ê±Æ÷µÄÀàĞÍ
-	/// </summary>
-	/// <returns>Çë²é¿´ ServerTimerType</returns>
+	///	è·å–æœåŠ¡å™¨å®šæ—¶å™¨çš„ç±»å‹
+	/// @return æœåŠ¡å™¨å®šæ—¶å™¨çš„ç±»å‹
 	virtual ServerTimerType GetType() const = 0;
 
-	/// <summary>
-	///  ×¢²á·şÎñÆ÷¶¨Ê±Æ÷¼àÌıÆ÷
-	/// </summary>
-	/// <param name="pListener">·şÎñÆ÷¶¨Ê±Æ÷¼àÌıÆ÷Ö¸Õë</param>
+	/// æ³¨å†ŒæœåŠ¡å™¨å®šæ—¶å™¨ç›‘å¬å™¨
+	/// @param pListener æœåŠ¡å™¨å®šæ—¶å™¨ç›‘å¬å™¨æŒ‡é’ˆ
 	virtual void RegisterListener(IServerTimerListener* pListener) = 0;
 
-	/// <summary>
-	/// Æô¶¯·şÎñÆ÷¶¨Ê±Æ÷
-	/// </summary>
+	/// å¯åŠ¨æœåŠ¡å™¨å®šæ—¶å™¨
 	virtual void Start() = 0;
 
-	/// <summary>
-	/// Í£Ö¹·şÎñÆ÷¶¨Ê±Æ÷
-	/// </summary>
+	/// åœæ­¢æœåŠ¡å™¨å®šæ—¶å™¨
 	virtual void Stop() = 0;
 
-	/// <summary>
-	/// ÉèÖÃÒ»¸ö¶¨Ê±Æ÷
-	/// </summary>
-	/// <param name="iTimerID">¶¨Ê±Æ÷ID</param>
-	/// <param name="iElapse">¶¨Ê±Ê±¼ä,ºÁÃëµ¥Î»,´óÓÚ100ms</param>
-	/// <param name="bShootOnce">ÊÇ·ñÖ»ÏìÓ¦Ò»´Î,trueÎªÏìÓ¦Ò»´Î,falseÎªÎŞÏŞ´ÎÊıÏìÓ¦</param>
-	virtual void SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce = true) = 0;
+	/// è®¾ç½®ä¸€ä¸ªå®šæ—¶å™¨
+	/// @param[in] iTimerID å®šæ—¶å™¨ID
+	/// @param[in] iElapse å®šæ—¶å™¨è§¦å‘æ—¶é—´ï¼Œæ¯«ç§’å•ä½ï¼Œå¤§äº100ms
+	/// @param[in] bShootOnce æ˜¯å¦åªè§¦å‘ä¸€æ¬¡ï¼Œtrueä¸ºè§¦å‘ä¸€æ¬¡,falseä¸ºæ— é™æ¬¡è§¦å‘
+	virtual void SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce) = 0;
 
-	/// <summary>
-	/// É±µôÒ»¸ö¶¨Ê±Æ÷
-	/// </summary>
-	/// <param name="iTimerID">¶¨Ê±Æ÷ID</param>
+	/// æ€æ‰ä¸€ä¸ªå®šæ—¶å™¨
+	/// @param iTimerID å®šæ—¶å™¨ID
 	virtual void KillTimer(unsigned int iTimerID) = 0;
 
-	/// <summary>
-	/// É±µôËùÓĞµÄ¶¨Ê±Æ÷
-	/// </summary>
+	/// æ€æ‰æ‰€æœ‰çš„å®šæ—¶å™¨
 	virtual void KillAllTimer() = 0;
 };
 
-/// <summary>
-/// ´´½¨·şÎñÆ÷¶¨Ê±Æ÷ÊµÀı
-/// </summary>
-/// <param name="type">¶¨Ê±Æ÷ÀàĞÍ</param>
-/// <returns>Ïú»Ù¶¨Ê±Æ÷ÊµÀıµÄ½Ó¿ÚÖ¸Õë</returns>
+/// åˆ›å»ºæœåŠ¡å™¨å®šæ—¶å™¨å®ä¾‹
+/// @param type å®šæ—¶å™¨ç±»å‹
+/// @return é”€æ¯å®šæ—¶å™¨å®ä¾‹çš„æ¥å£æŒ‡é’ˆ
 extern IServerTimer* CreateServerTimer(ServerTimerType type);
 
-/// <summary>
-/// Ïú»Ù¶¨Ê±Æ÷ÊµÀı
-/// </summary>
-/// <param name="pIServerTimer">¶¨Ê±Æ÷ÊµÀıµÄ½Ó¿ÚÖ¸Õë</param>
-extern void DestoryServerTimer(IServerTimer*& pIServerTimer);
+/// é”€æ¯å®šæ—¶å™¨å®ä¾‹
+/// @param pIServerTimer å®šæ—¶å™¨å®ä¾‹çš„æ¥å£æŒ‡é’ˆ
+extern void DestroyServerTimer(IServerTimer*& pIServerTimer);

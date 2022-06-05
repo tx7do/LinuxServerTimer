@@ -8,27 +8,24 @@
 #include <unordered_map>
 #include <vector>
 #include <atomic>
-#include <string.h>
+#include <cstring>
 #include "Event.h"
 
 
-class CEpollfdServerTimer : public IServerTimer
+class CEpollfdServerTimer final : public IServerTimer
 {
 public:
 	struct ServerTimerItem
 	{
-		int iTimerFD;
+		int iTimerFD{};
 
-		unsigned int iTimerID;
-		unsigned int iElapse;
-		bool bShootOnce;
+		unsigned int iTimerID{};
+		unsigned int iElapse{};
+		bool bShootOnce{};
 
 		mutable std::mutex _mutex;
 
-		ServerTimerItem()
-		{
-			clear();
-		}
+		ServerTimerItem() = default;
 		void clear()
 		{
 			iTimerFD = -1;
@@ -43,36 +40,39 @@ public:
 
 public:
 	CEpollfdServerTimer();
-	virtual ~CEpollfdServerTimer();
+	~CEpollfdServerTimer() final;
 
 public:
-	virtual ServerTimerType GetType() const { return ServerTimerType_Epollfd; }
+	ServerTimerType GetType() const final
+	{
+		return ServerTimerType_Epollfd;
+	}
 
-	virtual void RegisterListener(IServerTimerListener* pListener);
+	void RegisterListener(IServerTimerListener* pListener) final;
 
-	virtual void Start();
+	void Start() final;
 
-	virtual void Stop();
+	void Stop() final;
 
 public:
-	virtual void SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce = true);
+	void SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce) final;
 
-	virtual void KillTimer(unsigned int iTimerID);
+	void KillTimer(unsigned int iTimerID) final;
 
-	virtual void KillAllTimer();
+	void KillAllTimer() final;
 
 protected:
-	// ÊÇ·ñ´æÔÚÕâ¸ö¶¨Ê±Æ÷
+	// æ˜¯å¦å­˜åœ¨è¿™ä¸ªå®šæ—¶å™¨
 	bool isExistTimer(unsigned int iTimerID) const;
 
-	// Ïú»Ù¶¨Ê±Æ÷³ØµÄÏî
+	// é”€æ¯å®šæ—¶å™¨æ± çš„é¡¹
 	void destroyTimerItemPool();
 
 private:
 	bool createEpoll();
 	bool destroyEpoll();
 
-	bool destroyTimerfd(int iEpollFD, int iTimerFD);
+	static bool destroyTimerfd(int iEpollFD, int iTimerFD);
 
 	bool createThread();
 	bool destroyThread();
@@ -91,7 +91,7 @@ private:
 	ServerTimerItemPtrMap _items;
 	ServerTimerItemPtrArray _itemPool;
 
-	std::thread* _thread;
+	std::thread* _thread{};
 	mutable std::mutex _mutex;
 	CEvent _evThreadStarted;
 };

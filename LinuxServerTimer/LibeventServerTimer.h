@@ -16,24 +16,20 @@
 struct event_base;
 struct event;
 
-
-class CLibeventServerTimer : public IServerTimer
+class CLibeventServerTimer final : public IServerTimer
 {
 	struct ServerTimerItem
 	{
-		CLibeventServerTimer* pParent;
-		struct event* pEvent;
+		CLibeventServerTimer* pParent{};
+		struct event* pEvent{};
 
-		unsigned int iTimerID;
-		unsigned int iElapse;
-		bool bShootOnce;
+		unsigned int iTimerID{};
+		unsigned int iElapse{};
+		bool bShootOnce{};
 
 		mutable std::mutex _mutex;
 
-		ServerTimerItem()
-		{
-			clear();
-		}
+		ServerTimerItem() = default;
 		void clear()
 		{
 			pParent = nullptr;
@@ -49,50 +45,53 @@ class CLibeventServerTimer : public IServerTimer
 
 public:
 	CLibeventServerTimer();
-	virtual ~CLibeventServerTimer();
+	~CLibeventServerTimer() final;
 
 public:
-	virtual ServerTimerType GetType() const { return ServerTimerType_Libevent; }
+	ServerTimerType GetType() const final
+	{
+		return ServerTimerType_Libevent;
+	}
 
-	virtual void RegisterListener(IServerTimerListener* pListener);
+	void RegisterListener(IServerTimerListener* pListener) final;
 
-	virtual void Start();
+	void Start() final;
 
-	virtual void Stop();
+	void Stop() final;
 
 public:
-	virtual void SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce = true);
+	void SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce) final;
 
-	virtual void KillTimer(unsigned int iTimerID);
+	void KillTimer(unsigned int iTimerID) final;
 
-	virtual void KillAllTimer();
+	void KillAllTimer() final;
 
 protected:
-	// Æô¶¯ÊÂ¼ş¶ÓÁĞ
+	// å¯åŠ¨äº‹ä»¶é˜Ÿåˆ—
 	void startEvent();
-	// Í£Ö¹ÊÂ¼ş¶ÓÁĞ
+	// åœæ­¢äº‹ä»¶é˜Ÿåˆ—
 	void stopEvent();
 
-	// Æô¶¯¶¨Ê±Æ÷¹¤×÷Ïß³Ì
+	// å¯åŠ¨å®šæ—¶å™¨å·¥ä½œçº¿ç¨‹
 	void startThread();
-	// Í£Ö¹¶¨Ê±Æ÷¹¤×÷Ïß³Ì
+	// åœæ­¢å®šæ—¶å™¨å·¥ä½œçº¿ç¨‹
 	void stopThread();
 
 protected:
-	// ÊÇ·ñ´æÔÚÕâ¸ö¶¨Ê±Æ÷
+	// æ˜¯å¦å­˜åœ¨è¿™ä¸ªå®šæ—¶å™¨
 	bool isExistTimer(unsigned int iTimerID) const;
 
-	// Ïú»Ù¶¨Ê±Æ÷³ØµÄÏî
+	// é”€æ¯å®šæ—¶å™¨æ± çš„é¡¹
 	void destroyTimerItemPool();
 
 protected:
-	// ÊÂ¼ş¶ÓÁĞ»Øµ÷·½·¨
+	// äº‹ä»¶é˜Ÿåˆ—å›è°ƒæ–¹æ³•
 	static void onEvent(evutil_socket_t fd, short event, void* arg);
 
-	// Ïß³Ì»Øµ÷·½·¨
+	// çº¿ç¨‹å›è°ƒæ–¹æ³•
 	void onThread();
 
-	// ¶¨Ê±Æ÷³¬Ê±»Øµ÷·½·¨
+	// å®šæ—¶å™¨è¶…æ—¶å›è°ƒæ–¹æ³•
 	void onTimeOut(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce);
 
 private:

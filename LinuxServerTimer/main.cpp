@@ -2,69 +2,70 @@
 #include "stdinc.h"
 #include "IServerTimer.h"
 #include "LibeventServerTimer.h"
+#include <chrono>
+#include <iomanip>
+#include "stopwatch.h"
 
 
 using namespace std;
 
-class CServer : public IServerTimerListener
+
+class CServer final : public IServerTimerListener
 {
 public:
 	CServer()
 	{
 		cout << "Hello CMake." << endl;
-
-		evutil_gettimeofday(&g_lasttime, nullptr);
-
 		pITimer = CreateServerTimer(ServerTimerType_Asio);
 		pITimer->RegisterListener(this);
 	}
-	~CServer()
+	~CServer() final
 	{
-		DestoryServerTimer(pITimer);
+		DestroyServerTimer(pITimer);
 	}
 
 	int Run()
 	{
+		_stopwatch.reset();
+
+		std::cout << "begin start timer." << std::endl;
 		pITimer->Start();
+		std::cout << "finished start timer." << std::endl;
 
 		unsigned int iTimerID = 99;
 		unsigned int iElapse = 1000;
-		pITimer->SetTimer(iTimerID, iElapse);
+		pITimer->SetTimer(iTimerID, iElapse, true);
 		iTimerID = 88;
 		pITimer->SetTimer(iTimerID, iElapse, false);
-		
-		while (1)
+
+		for (;;)
 		{
-			usleep(1000000);
+			std::cout << "waiting for thread done." << std::endl;
+			std::this_thread::sleep_for(chrono::seconds{ 1000 });
+			break;
 		}
 
 		return 0;
 	}
 
 protected:
-	virtual void OnTimer(unsigned int iTimerID, unsigned int iElapse)
+	void OnTimer(unsigned int iTimerID, unsigned int iElapse) final
 	{
-		struct timeval nowTime, difference;
-		double elapsed;
-		evutil_gettimeofday(&nowTime, nullptr);
-		evutil_timersub(&nowTime, &g_lasttime, &difference);
-		elapsed = difference.tv_sec + (difference.tv_usec / 1.0e6);
+		auto now = chrono::system_clock::now();
+		auto now_time = chrono::system_clock::to_time_t(now);
 
-		struct tm* info = gmtime(&nowTime.tv_sec);
+		auto elapsed = duration_cast<double>(_stopwatch.tick());
 
-		printf("[%d] called at %2d:%02d:%02d: %.3f seconds elapsed.\n",
-			iTimerID, 
-			(info->tm_hour + 8) % 24, info->tm_min, info->tm_sec,
-			elapsed);
-
-		g_lasttime = nowTime;
+		std::cout << "[" << iTimerID << "] OnTimer: " << " "
+				  << std::put_time(std::localtime(&now_time), "%T ") << " "
+				  << setiosflags(ios::fixed) << setprecision(2) << elapsed
+				  << " seconds elapsed." << std::endl;
 	}
 
 private:
-	IServerTimer* pITimer;
-	struct timeval g_lasttime;
+	IServerTimer* pITimer = nullptr;
+	StopWatch<> _stopwatch;
 };
-
 
 int main()
 {

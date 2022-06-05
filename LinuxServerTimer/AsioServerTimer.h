@@ -7,23 +7,23 @@
 #include <unordered_map>
 #include <vector>
 #include <atomic>
-#include <string.h>
+#include <cstring>
 #include "Event.h"
 
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>  
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 
-class CAsioServerTimer : public IServerTimer
+class CAsioServerTimer final : public IServerTimer
 {
 	struct ServerTimerItem
 	{
-		unsigned int iTimerID;
-		unsigned int iElapse;
-		bool bShootOnce;
+		unsigned int iTimerID{};
+		unsigned int iElapse{};
+		bool bShootOnce{};
 
-		boost::asio::steady_timer* t;
+		boost::asio::steady_timer* t{};
 
 		mutable std::mutex _mutex;
 
@@ -45,33 +45,37 @@ class CAsioServerTimer : public IServerTimer
 
 public:
 	CAsioServerTimer();
-	virtual ~CAsioServerTimer();
+	~CAsioServerTimer() final;
 
-	virtual ServerTimerType GetType() const { return ServerTimerType_Asio; }
+public:
+	ServerTimerType GetType() const final
+	{
+		return ServerTimerType_Asio;
+	}
 
-	virtual void RegisterListener(IServerTimerListener* pListener);
+	void RegisterListener(IServerTimerListener* pListener) final;
 
-	virtual void Start();
+	void Start() final;
 
-	virtual void Stop();
+	void Stop() final;
 
-	virtual void SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce = true);
+	void SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce) final;
 
-	virtual void KillTimer(unsigned int iTimerID);
+	void KillTimer(unsigned int iTimerID) final;
 
-	virtual void KillAllTimer();
+	void KillAllTimer() final;
 
 protected:
-	// Æô¶¯¶¨Ê±Æ÷¹¤×÷Ïß³Ì
+	// å¯åŠ¨çº¿ç¨‹
 	void startThread();
-	// Í£Ö¹¶¨Ê±Æ÷¹¤×÷Ïß³Ì
+	// åœæ­¢çº¿ç¨‹
 	void stopThread();
 
 protected:
-	// ÊÇ·ñ´æÔÚÕâ¸ö¶¨Ê±Æ÷
+	// æ˜¯å¦å­˜åœ¨è¿™ä¸ªå®šæ—¶å™¨
 	bool isExistTimer(unsigned int iTimerID) const;
 
-	// Ïú»Ù¶¨Ê±Æ÷³ØµÄÏî
+	// é”€æ¯å®šæ—¶å™¨æ± çš„é¡¹
 	void destroyTimerItemPool();
 
 protected:

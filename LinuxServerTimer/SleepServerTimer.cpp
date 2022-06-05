@@ -1,29 +1,28 @@
 
 #include "SleepServerTimer.h"
-#include <unistd.h>
-#include <sys/time.h>
-#include <assert.h>
+#include <ctime>
+#include <cassert>
+#include <chrono>
 
-long long GetSysMilliseconds()
+time_t GetSysMilliseconds()
 {
-	struct timeval tv;
-	::gettimeofday(&tv, NULL);
-
-	return tv.tv_sec * 1000 + tv.tv_usec / 1000;
+	using std::chrono::duration_cast;
+	using std::chrono::milliseconds;
+	using std::chrono::seconds;
+	using std::chrono::system_clock;
+	return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
 
-unsigned int CSleepServerTimer::s_iResolution = 100;
+time_t CSleepServerTimer::s_iResolution = 100;
 
 CSleepServerTimer::CSleepServerTimer()
-	: _thread(nullptr)
-	, _listener(nullptr)
-	, _running(false)
-{}
+	: _thread(nullptr), _listener(nullptr), _running(false)
+{
+}
 
 CSleepServerTimer::~CSleepServerTimer()
 {
 	stopThread();
-	KillAllTimer();
 	destroyTimerItemPool();
 }
 
@@ -49,9 +48,7 @@ void CSleepServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse, bo
 		iElapse = s_iResolution;
 	}
 
-	struct timeval tv;
-	::gettimeofday(&tv, nullptr);
-	long long iMS = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+	auto iMS = GetSysMilliseconds();
 
 	ServerTimerItemPtr item = nullptr;
 	{
@@ -95,8 +92,6 @@ void CSleepServerTimer::KillTimer(unsigned int iTimerID)
 	auto& item = iter->second;
 	_itemPool.push_back(item);
 	_items.erase(iter);
-
-	return;
 }
 
 void CSleepServerTimer::KillAllTimer()
@@ -161,7 +156,7 @@ void CSleepServerTimer::destroyTimerItemPool()
 
 void CSleepServerTimer::onThread()
 {
-	const int micro_seconds = s_iResolution * 1000;
+	const time_t micro_seconds = s_iResolution * 1000;
 
 	ServerTimerItemPtrArray temps;
 	long long currTime = 0;
@@ -182,7 +177,7 @@ void CSleepServerTimer::onThread()
 			continue;
 		}
 
-		::usleep(micro_seconds);
+		std::this_thread::sleep_for(std::chrono::microseconds{micro_seconds});
 
 		temps.clear();
 		currTime = GetSysMilliseconds() / s_iResolution * s_iResolution;
