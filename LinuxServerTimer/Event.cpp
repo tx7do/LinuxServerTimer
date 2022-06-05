@@ -15,10 +15,6 @@ void CEvent::set()
 void CEvent::wait()
 {
 	std::unique_lock<std::mutex> lock(_mutex);
-//	while (!_ready)
-//	{
-//		_cond.wait(lock);
-//	}
 	_cond.wait(lock, [this]() {return this->_ready; });
 	if (_auto) _ready = false;
 }
