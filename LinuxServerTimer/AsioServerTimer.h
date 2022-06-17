@@ -15,28 +15,29 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 
+//using atimer_t = boost::asio::steady_timer;
+using atimer_t = boost::asio::high_resolution_timer;
+using atimer_ptr = std::shared_ptr<atimer_t>;
+
+using elapse_t = std::chrono::milliseconds;
+
+
 class CAsioServerTimer final : public IServerTimer
 {
 	struct ServerTimerItem
 	{
-		unsigned int iTimerID{};
-		unsigned int iElapse{};
-		bool bShootOnce{};
+		unsigned int iTimerID{ 0 };
+		elapse_t iElapse{ 0 };
+		bool bShootOnce{ true };
 
-		boost::asio::steady_timer* t{};
+		atimer_ptr t{ nullptr };
 
 		mutable std::mutex _mutex;
 
-		ServerTimerItem()
+		void cancel()
 		{
-			clear();
-		}
-		void clear()
-		{
-			iTimerID = 0;
-			iElapse = 0;
-			bShootOnce = true;
-			t = nullptr;
+			iTimerID = -1;
+			if (t)t->cancel();
 		}
 	};
 	typedef ServerTimerItem* ServerTimerItemPtr;

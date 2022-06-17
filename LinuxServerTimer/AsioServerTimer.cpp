@@ -1,6 +1,8 @@
 
 #include "AsioServerTimer.h"
 
+using error_code = boost::system::error_code;
+
 CAsioServerTimer::CAsioServerTimer()
 	: _thread(nullptr), _running(false), _listener(nullptr)
 {
@@ -56,14 +58,22 @@ void CAsioServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse, boo
 	}
 	assert(item);
 
-	//item->t = new boost::asio::deadline_timer(_ioc, boost::posix_time::milliseconds(iElapse));
-	item->t = new boost::asio::steady_timer(_ioc, std::chrono::milliseconds(iElapse));
+	if (item->t == nullptr)
+	{
+		item->t = std::make_shared<atimer_t>(_ioc);
+	}
+
+	item->t->expires_after(elapse_t(iElapse));
+
 	item->iTimerID = iTimerID;
-	item->iElapse = iElapse;
+	item->iElapse = elapse_t(iElapse);
 	item->bShootOnce = bShootOnce;
 	_items[iTimerID] = item;
 
-	item->t->async_wait(boost::bind(&CAsioServerTimer::onTimeOut, this, boost::asio::placeholders::error, item));
+	item->t->async_wait([this, item](error_code ec)
+	{
+		onTimeOut(ec, item);
+	});
 }
 
 void CAsioServerTimer::KillTimer(unsigned int iTimerID)
@@ -82,8 +92,7 @@ void CAsioServerTimer::KillTimer(unsigned int iTimerID)
 	}
 
 	auto& item = iter->second;
-	delete item->t;
-	item->clear();
+	item->cancel();
 
 	_itemPool.push_back(item);
 	_items.erase(iter);
@@ -98,8 +107,7 @@ void CAsioServerTimer::KillAllTimer()
 	for (; iter != iEnd; ++iter)
 	{
 		auto& item = iter->second;
-		delete item->t;
-		item->clear();
+		item->cancel();
 		_itemPool.push_back(item);
 	}
 	_items.clear();
@@ -167,20 +175,29 @@ void CAsioServerTimer::onTimeOut(boost::system::error_code ec, ServerTimerItemPt
 {
 	if (pm == nullptr) return;
 
-	const unsigned int iTimerID = pm->iTimerID;
-	const unsigned int iElapse = pm->iElapse;
+	if (ec == boost::asio::error::operation_aborted)
+	{
+		std::cout << "The timer is cancelled" << std::endl;
+		return;
+	}
+
+	const auto iTimerID = pm->iTimerID;
+	const auto iElapse = pm->iElapse;
 	if (pm->bShootOnce)
 	{
 		KillTimer(iTimerID);
 	}
 	else
 	{
-		pm->t->expires_from_now(std::chrono::milliseconds(iElapse));
-		pm->t->async_wait(boost::bind(&CAsioServerTimer::onTimeOut, this, boost::asio::placeholders::error, pm));
+		pm->t->expires_after(iElapse);
+		pm->t->async_wait([this, pm](error_code ec)
+		{
+			onTimeOut(ec, pm);
+		});
 	}
 
 	if (_listener != nullptr)
 	{
-		_listener->OnTimer(iTimerID, iElapse);
+		_listener->OnTimer(iTimerID, iElapse.count());
 	}
 }
