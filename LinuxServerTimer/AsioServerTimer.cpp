@@ -165,10 +165,7 @@ void CAsioServerTimer::onThread()
 {
 	_evThreadStarted.set();
 	auto work_guard = boost::asio::make_work_guard(_ioc);
-	while (_running)
-	{
-		_ioc.run();
-	}
+	_ioc.run();
 }
 
 void CAsioServerTimer::onTimeOut(boost::system::error_code ec, ServerTimerItemPtr pm)
