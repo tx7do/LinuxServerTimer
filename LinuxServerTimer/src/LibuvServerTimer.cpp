@@ -5,8 +5,94 @@
 #include <iostream>
 #include <cassert>
 
+// https://juejin.cn/post/7083030400389349413
+
+template<typename T,
+	typename std::enable_if<
+		// these are the C-style 'subclasses' of uv_handle_t
+		std::is_same<T, uv_async_t>::value ||
+			std::is_same<T, uv_check_t>::value ||
+			std::is_same<T, uv_fs_event_t>::value ||
+			std::is_same<T, uv_fs_poll_t>::value ||
+			std::is_same<T, uv_idle_t>::value ||
+			std::is_same<T, uv_pipe_t>::value ||
+			std::is_same<T, uv_poll_t>::value ||
+			std::is_same<T, uv_prepare_t>::value ||
+			std::is_same<T, uv_process_t>::value ||
+			std::is_same<T, uv_signal_t>::value ||
+			std::is_same<T, uv_stream_t>::value ||
+			std::is_same<T, uv_tcp_t>::value ||
+			std::is_same<T, uv_timer_t>::value ||
+			std::is_same<T, uv_tty_t>::value ||
+			std::is_same<T, uv_udp_t>::value>::type* = nullptr>
+class UvHandle
+{
+public:
+	UvHandle()
+		: t_(new T)
+	{
+	}
+	~UvHandle()
+	{
+		reset();
+	}
+
+	T* get()
+	{
+		return t_;
+	}
+	uv_handle_t* handle()
+	{
+		return reinterpret_cast<uv_handle_t*>(t_);
+	}
+
+	void reset()
+	{
+		auto* h = handle();
+		if (h != nullptr)
+		{
+			if (uv_is_closing(h) == 0)
+			{
+				::uv_close(h, OnClosed);
+			}
+			t_ = nullptr;
+		}
+	}
+
+private:
+	static void OnClosed(uv_handle_t* handle)
+	{
+		delete reinterpret_cast<T*>(handle);
+	}
+
+	T* t_ = {};
+};
+
+void stop_and_close_uv_loop(uv_loop_t* loop)
+{
+	::uv_stop(loop);
+
+	auto const ensure_closing = [](uv_handle_t* handle, void*)
+	{
+		if (!::uv_is_closing(handle))
+		{
+			::uv_close(handle, nullptr);
+		}
+	};
+
+	::uv_walk(loop, ensure_closing, nullptr);
+
+	for (;;)
+	{
+		if (::uv_run(loop, UV_RUN_DEFAULT) == 0)
+		{
+			break;
+		}
+	}
+}
+
 CLibuvServerTimer::CLibuvServerTimer()
-	: _running(false), _listener(nullptr), _pool(100), _thread(nullptr), _loop(nullptr)
+	: _running(false), _listener(nullptr), _pool(100), _thread(nullptr)
 {
 }
 
@@ -44,8 +130,6 @@ void CLibuvServerTimer::SetTimer(timerid_t iTimerID, elapse_t iElapse, bool bSho
 	}
 
 	auto item = _pool.borrowObject();
-
-	assert(_loop);
 
 	::uv_timer_init(_loop, &item->uv_timer);
 
@@ -116,22 +200,24 @@ bool CLibuvServerTimer::isExistTimer(timerid_t iTimerID) const
 
 void CLibuvServerTimer::startEvent()
 {
-	if (_loop != nullptr)
-	{
-		stopEvent();
-	}
+//	stopEvent();
 
-	_loop = ::uv_default_loop();
-//	::uv_idle_init(_loop, &_idler);
+	_loop = new uv_loop_t{};
+
+	::uv_loop_init(_loop);
+	::uv_idle_init(_loop, &_idler);
+
+	::uv_loop_configure(_loop, UV_LOOP_BLOCK_SIGNAL, SIGPROF);
 }
 
 void CLibuvServerTimer::stopEvent()
 {
-	if (_loop != nullptr)
-	{
-		::uv_loop_close(_loop);
-		_loop = nullptr;
-	}
+	::uv_idle_stop(&_idler);
+	stop_and_close_uv_loop(_loop);
+	::uv_loop_close(_loop);
+
+	delete _loop;
+	_loop = nullptr;
 }
 
 void CLibuvServerTimer::startThread()
@@ -179,11 +265,13 @@ void CLibuvServerTimer::onThread()
 
 	_evThreadStarted.set();
 
-//	::uv_idle_start(&_idler, wait_for_a_while);
-	do
+	::uv_idle_start(&_idler, [](uv_idle_t*)
 	{
-		::uv_run(_loop, UV_RUN_DEFAULT);
-	} while (_running);
+//		std::cout << "idle" << std::endl;
+//		std::this_thread::sleep_for(std::chrono::milliseconds{ 50 });
+	});
+
+	::uv_run(_loop, UV_RUN_DEFAULT);
 
 	stopEvent();
 }

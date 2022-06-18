@@ -34,6 +34,7 @@ class CLibuvServerTimer final : public IServerTimer
 			iTimerID = 0;
 			iElapse = 0;
 			bShootOnce = true;
+			//::uv_close((uv_handle_t*) &uv_timer, nullptr);
 		}
 	};
 	using ServerTimerItemPtr = std::shared_ptr<ServerTimerItem>;
@@ -90,15 +91,15 @@ protected:
 
 private:
 	uv_loop_t* _loop = nullptr;
-	uv_idle_t _idler;
+	uv_idle_t _idler = {};
 
-	std::thread* _thread;
+	std::thread* _thread = { nullptr };
 	mutable std::mutex _mutex;
 	CEvent _evThreadStarted;
-	std::atomic<bool> _running;
+	std::atomic<bool> _running = { false };
 
 	ServerTimerItemPool _pool;
 	ServerTimerItemPtrMap _items;
 
-	IServerTimerListener* _listener;
+	IServerTimerListener* _listener = { nullptr };
 };

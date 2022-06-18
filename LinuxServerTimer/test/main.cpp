@@ -15,7 +15,7 @@ public:
 	CServer()
 	{
 		std::cout << "Main Thread ID:" << std::this_thread::get_id() << std::endl;
-		pITimer = CreateServerTimer(ServerTimerType_Libevent);
+		pITimer = CreateServerTimer(ServerTimerType_Libuv);
 		pITimer->RegisterListener(this);
 	}
 	~CServer() final
@@ -32,7 +32,7 @@ public:
 		std::cout << "finished start timer." << std::endl;
 
 		timerid_t iTimerID = 99;
-		elapse_t iElapse = 1000;
+		elapse_t iElapse = 10000;
 		pITimer->SetTimer(iTimerID, iElapse, true);
 
 		std::this_thread::sleep_for(chrono::seconds{ 10 });
