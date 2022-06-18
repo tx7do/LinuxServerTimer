@@ -5,17 +5,14 @@
 #include <iostream>
 #include <cassert>
 
+#include <event2/thread.h>
 #include <event2/event.h>
 #include <event2/event_struct.h>
 #include <event2/util.h>
 
 
 CLibeventServerTimer::CLibeventServerTimer()
-	: _running(false)
-	, _listener(nullptr)
-	, _base(nullptr)
-	, _thread(nullptr)
-	, _pool(100)
+	: _listener(nullptr), _base(nullptr), _thread(nullptr), _pool(100)
 {
 }
 
@@ -38,8 +35,7 @@ void CLibeventServerTimer::Start()
 
 void CLibeventServerTimer::Stop()
 {
-	_running = false;
-
+	stopEvent();
 	stopThread();
 
 	KillAllTimer();
@@ -132,15 +128,26 @@ void CLibeventServerTimer::startEvent()
 		stopEvent();
 	}
 
-	_base = ::event_base_new();
+	::evthread_use_pthreads();
+
+	auto cfg = ::event_config_new();
+	if (::event_config_set_flag(cfg, EVENT_BASE_FLAG_EPOLL_USE_CHANGELIST) < 0)
+	{
+		return;
+	}
+
+	_base = ::event_base_new_with_config(cfg);
+
+	::event_config_free(cfg);
+
 	assert(_base);
-	//std::cout << "Event Base:" << _base << std::endl;
 }
 
 void CLibeventServerTimer::stopEvent()
 {
 	if (_base != nullptr)
 	{
+		::event_base_loopbreak(_base);
 		::event_base_free(_base);
 		_base = nullptr;
 	}
@@ -150,8 +157,6 @@ void CLibeventServerTimer::startThread()
 {
 	if (_thread == nullptr)
 	{
-		_running = true;
-
 		_thread = new std::thread(&CLibeventServerTimer::onThread, (CLibeventServerTimer*)this);
 		assert(_thread);
 		_evThreadStarted.wait();
@@ -160,7 +165,6 @@ void CLibeventServerTimer::startThread()
 
 void CLibeventServerTimer::stopThread()
 {
-	_running = false;
 	if (_thread != nullptr)
 	{
 		_thread->join();
@@ -191,21 +195,13 @@ void CLibeventServerTimer::onThread()
 
 	_evThreadStarted.set();
 
-	while (_running)
-	{
-		event_base_dispatch(_base);
-	}
+	::event_base_loop(_base, EVLOOP_NO_EXIT_ON_EMPTY);
 
 	stopEvent();
 }
 
 void CLibeventServerTimer::onTimeOut(timerid_t iTimerID, elapse_t iElapse, bool bShootOnce)
 {
-	if (!_running)
-	{
-		::event_base_loopbreak(_base);
-	}
-
 	if (bShootOnce)
 	{
 		KillTimer(iTimerID);

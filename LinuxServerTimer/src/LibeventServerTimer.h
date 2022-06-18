@@ -96,7 +96,6 @@ private:
 	std::thread* _thread;
 	mutable std::mutex _mutex;
 	CEvent _evThreadStarted;
-	std::atomic<bool> _running;
 
 	ServerTimerItemPool _pool;
 	ServerTimerItemPtrMap _items;

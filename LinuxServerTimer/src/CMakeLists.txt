@@ -32,6 +32,9 @@ target_link_libraries(
         ${PROJECT_NAME}
         ${Boost_LIBRARIES}
         event
+        uv
+        event_pthreads
         pthread
         rt
+        dl
 )

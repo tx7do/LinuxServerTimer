@@ -15,7 +15,7 @@ public:
 	CServer()
 	{
 		std::cout << "Main Thread ID:" << std::this_thread::get_id() << std::endl;
-		pITimer = CreateServerTimer(ServerTimerType_Libuv);
+		pITimer = CreateServerTimer(ServerTimerType_Libevent);
 		pITimer->RegisterListener(this);
 	}
 	~CServer() final
@@ -34,12 +34,14 @@ public:
 		timerid_t iTimerID = 99;
 		elapse_t iElapse = 1000;
 		pITimer->SetTimer(iTimerID, iElapse, true);
+
+		std::this_thread::sleep_for(chrono::seconds{ 10 });
 		iTimerID = 88;
-//		pITimer->SetTimer(iTimerID, iElapse, false);
+		pITimer->SetTimer(iTimerID, iElapse, false);
 
 		for (;;)
 		{
-			std::cout << "waiting for thread done." << std::endl;
+			std::cout << "main thread waiting for thread done." << std::endl;
 			std::this_thread::sleep_for(chrono::seconds{ 1000 });
 			break;
 		}
