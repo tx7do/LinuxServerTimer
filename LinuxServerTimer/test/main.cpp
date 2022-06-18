@@ -32,7 +32,7 @@ public:
 		std::cout << "finished start timer." << std::endl;
 
 		timerid_t iTimerID = 99;
-		elapse_t iElapse = 10000;
+		elapse_t iElapse = 2000;
 		pITimer->SetTimer(iTimerID, iElapse, true);
 
 		std::this_thread::sleep_for(chrono::seconds{ 10 });

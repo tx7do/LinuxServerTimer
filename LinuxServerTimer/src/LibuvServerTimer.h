@@ -13,6 +13,68 @@
 #include "Event.h"
 #include "ObjectPool.h"
 
+// https://juejin.cn/post/7083030400389349413
+
+template<typename T,
+	typename std::enable_if<
+		// these are the C-style 'subclasses' of uv_handle_t
+		std::is_same<T, uv_async_t>::value ||
+			std::is_same<T, uv_check_t>::value ||
+			std::is_same<T, uv_fs_event_t>::value ||
+			std::is_same<T, uv_fs_poll_t>::value ||
+			std::is_same<T, uv_idle_t>::value ||
+			std::is_same<T, uv_pipe_t>::value ||
+			std::is_same<T, uv_poll_t>::value ||
+			std::is_same<T, uv_prepare_t>::value ||
+			std::is_same<T, uv_process_t>::value ||
+			std::is_same<T, uv_signal_t>::value ||
+			std::is_same<T, uv_stream_t>::value ||
+			std::is_same<T, uv_tcp_t>::value ||
+			std::is_same<T, uv_timer_t>::value ||
+			std::is_same<T, uv_tty_t>::value ||
+			std::is_same<T, uv_udp_t>::value>::type* = nullptr>
+class UvHandle
+{
+public:
+	UvHandle()
+		: t_(new T)
+	{
+	}
+	~UvHandle()
+	{
+		reset();
+	}
+
+	T* get()
+	{
+		return t_;
+	}
+	uv_handle_t* handle()
+	{
+		return reinterpret_cast<uv_handle_t*>(t_);
+	}
+
+	void reset()
+	{
+		auto* h = handle();
+		if (h != nullptr)
+		{
+			if (uv_is_closing(h) == 0)
+			{
+				::uv_close(h, OnClosed);
+			}
+			t_ = nullptr;
+		}
+	}
+
+private:
+	static void OnClosed(uv_handle_t* handle)
+	{
+		delete reinterpret_cast<T*>(handle);
+	}
+
+	T* t_ = {};
+};
 
 class CLibuvServerTimer final : public IServerTimer
 {
@@ -91,7 +153,7 @@ protected:
 
 private:
 	uv_loop_t* _loop = nullptr;
-	uv_idle_t _idler = {};
+	UvHandle<uv_async_t> call_next_tick_async_;
 
 	std::thread* _thread = { nullptr };
 	mutable std::mutex _mutex;
