@@ -30,7 +30,7 @@ void stop_and_close_uv_loop(uv_loop_t* loop)
 }
 
 CLibuvServerTimer::CLibuvServerTimer()
-	: _running(false), _listener(nullptr), _pool(100), _thread(nullptr)
+	: _listener(nullptr), _pool(100), _thread(nullptr)
 {
 }
 
@@ -53,8 +53,6 @@ void CLibuvServerTimer::Start()
 
 void CLibuvServerTimer::Stop()
 {
-	_running = false;
-
 	stopThread();
 
 	KillAllTimer();
@@ -171,8 +169,6 @@ void CLibuvServerTimer::startThread()
 {
 	if (_thread == nullptr)
 	{
-		_running = true;
-
 		_thread = new std::thread(&CLibuvServerTimer::onThread, (CLibuvServerTimer*)this);
 		assert(_thread);
 		_evThreadStarted.wait();
@@ -181,7 +177,6 @@ void CLibuvServerTimer::startThread()
 
 void CLibuvServerTimer::stopThread()
 {
-	_running = false;
 	if (_thread != nullptr)
 	{
 		_thread->join();

@@ -15,7 +15,7 @@ public:
 	CServer()
 	{
 		std::cout << "Main Thread ID:" << std::this_thread::get_id() << std::endl;
-		pITimer = CreateServerTimer(ServerTimerType_Libuv);
+		pITimer = CreateServerTimer(ServerTimerType_Epollfd);
 		pITimer->RegisterListener(this);
 	}
 	~CServer() final

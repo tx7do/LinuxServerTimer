@@ -158,7 +158,6 @@ private:
 	std::thread* _thread = { nullptr };
 	mutable std::mutex _mutex;
 	CEvent _evThreadStarted;
-	std::atomic<bool> _running = { false };
 
 	ServerTimerItemPool _pool;
 	ServerTimerItemPtrMap _items;
