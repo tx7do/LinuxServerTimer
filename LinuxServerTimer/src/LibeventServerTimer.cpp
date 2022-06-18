@@ -15,6 +15,7 @@ CLibeventServerTimer::CLibeventServerTimer()
 	, _listener(nullptr)
 	, _base(nullptr)
 	, _thread(nullptr)
+	, _pool(100)
 {
 }
 
@@ -23,7 +24,6 @@ CLibeventServerTimer::~CLibeventServerTimer()
 	stopEvent();
 	stopThread();
 	KillAllTimer();
-	destroyTimerItemPool();
 }
 
 void CLibeventServerTimer::RegisterListener(IServerTimerListener* pListener)
@@ -45,7 +45,7 @@ void CLibeventServerTimer::Stop()
 	KillAllTimer();
 }
 
-void CLibeventServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce)
+void CLibeventServerTimer::SetTimer(timerid_t iTimerID, elapse_t iElapse, bool bShootOnce)
 {
 	if (isExistTimer(iTimerID))
 	{
@@ -54,20 +54,11 @@ void CLibeventServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse,
 
 	std::lock_guard<std::mutex> lk(_mutex);
 
-	ServerTimerItemPtr item = nullptr;
-	if (_itemPool.empty())
-	{
-		item = new ServerTimerItem();
-	}
-	else
-	{
-		item = _itemPool.back();
-		_itemPool.pop_back();
-	}
+	auto item = _pool.borrowObject();
 	assert(item);
 
 	assert(_base);
-	struct event* ev = ::event_new(_base, -1, bShootOnce ? 0 : EV_PERSIST, CLibeventServerTimer::onEvent, item);
+	struct event* ev = ::event_new(_base, -1, bShootOnce ? 0 : EV_PERSIST, CLibeventServerTimer::onEvent, item.get());
 
 	struct timeval tv{};
 	tv.tv_sec = 0;
@@ -82,7 +73,7 @@ void CLibeventServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse,
 	_items[iTimerID] = item;
 }
 
-void CLibeventServerTimer::KillTimer(unsigned int iTimerID)
+void CLibeventServerTimer::KillTimer(timerid_t iTimerID)
 {
 	if (!isExistTimer(iTimerID))
 	{
@@ -101,7 +92,7 @@ void CLibeventServerTimer::KillTimer(unsigned int iTimerID)
 	::event_free(item->pEvent);
 	item->clear();
 
-	_itemPool.push_back(item);
+	_pool.returnObject(item);
 	_items.erase(iter);
 }
 
@@ -116,12 +107,12 @@ void CLibeventServerTimer::KillAllTimer()
 		auto& item = iter->second;
 		::event_free(item->pEvent);
 		item->clear();
-		_itemPool.push_back(item);
+		_pool.returnObject(item);
 	}
 	_items.clear();
 }
 
-bool CLibeventServerTimer::isExistTimer(unsigned int iTimerID) const
+bool CLibeventServerTimer::isExistTimer(timerid_t iTimerID) const
 {
 	std::lock_guard<std::mutex> lk(_mutex);
 
@@ -134,18 +125,6 @@ bool CLibeventServerTimer::isExistTimer(unsigned int iTimerID) const
 	return true;
 }
 
-inline void CLibeventServerTimer::destroyTimerItemPool()
-{
-	auto iter = _itemPool.begin();
-	auto iEnd = _itemPool.end();
-	for (; iter != iEnd; ++iter)
-	{
-		auto& item = *iter;
-		delete item;
-	}
-	_itemPool.clear();
-}
-
 void CLibeventServerTimer::startEvent()
 {
 	if (_base != nullptr)
@@ -153,7 +132,7 @@ void CLibeventServerTimer::startEvent()
 		stopEvent();
 	}
 
-	_base = event_base_new();
+	_base = ::event_base_new();
 	assert(_base);
 	//std::cout << "Event Base:" << _base << std::endl;
 }
@@ -220,7 +199,7 @@ void CLibeventServerTimer::onThread()
 	stopEvent();
 }
 
-void CLibeventServerTimer::onTimeOut(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce)
+void CLibeventServerTimer::onTimeOut(timerid_t iTimerID, elapse_t iElapse, bool bShootOnce)
 {
 	if (!_running)
 	{

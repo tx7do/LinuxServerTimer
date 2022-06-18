@@ -16,14 +16,13 @@ time_t GetSysMilliseconds()
 time_t CSleepServerTimer::s_iResolution = 100;
 
 CSleepServerTimer::CSleepServerTimer()
-	: _thread(nullptr), _listener(nullptr), _running(false)
+	: _thread(nullptr), _listener(nullptr), _running(false), _pool(100)
 {
 }
 
 CSleepServerTimer::~CSleepServerTimer()
 {
 	stopThread();
-	destroyTimerItemPool();
 }
 
 void CSleepServerTimer::RegisterListener(IServerTimerListener* pListener)
@@ -41,7 +40,7 @@ void CSleepServerTimer::Stop()
 	stopThread();
 }
 
-void CSleepServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce)
+void CSleepServerTimer::SetTimer(timerid_t iTimerID, elapse_t iElapse, bool bShootOnce)
 {
 	if (iElapse < s_iResolution)
 	{
@@ -50,31 +49,20 @@ void CSleepServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse, bo
 
 	auto iMS = GetSysMilliseconds();
 
-	ServerTimerItemPtr item = nullptr;
-	{
-		std::lock_guard<std::mutex> lk(_mutex);
-		if (_itemPool.empty())
-		{
-			item = new ServerTimerItem();
-			_items[iTimerID] = item;
-		}
-		else
-		{
-			item = _itemPool.back();
-			_itemPool.pop_back();
-		}
-		assert(item);
-	}
+	auto item = _pool.borrowObject();
 
 	item->iTimerID = iTimerID;
 	item->iElapse = iElapse / s_iResolution * s_iResolution;
 	item->iStartTime = iMS / s_iResolution * s_iResolution + iElapse;
 	item->bShootOnce = bShootOnce;
 
+	std::lock_guard<std::mutex> lk(_mutex);
+	_items[iTimerID] = item;
+
 	_evThreadWait.set();
 }
 
-void CSleepServerTimer::KillTimer(unsigned int iTimerID)
+void CSleepServerTimer::KillTimer(timerid_t iTimerID)
 {
 	if (!isExistTimer(iTimerID))
 	{
@@ -90,7 +78,7 @@ void CSleepServerTimer::KillTimer(unsigned int iTimerID)
 	}
 
 	auto& item = iter->second;
-	_itemPool.push_back(item);
+	_pool.returnObject(item);
 	_items.erase(iter);
 }
 
@@ -103,7 +91,7 @@ void CSleepServerTimer::KillAllTimer()
 	{
 		auto& item = iter->second;
 		item->clear();
-		_itemPool.push_back(item);
+		_pool.returnObject(item);
 	}
 	_items.clear();
 }
@@ -129,7 +117,7 @@ void CSleepServerTimer::stopThread()
 	}
 }
 
-inline bool CSleepServerTimer::isExistTimer(unsigned int iTimerID) const
+inline bool CSleepServerTimer::isExistTimer(timerid_t iTimerID) const
 {
 	std::lock_guard<std::mutex> lk(_mutex);
 
@@ -140,18 +128,6 @@ inline bool CSleepServerTimer::isExistTimer(unsigned int iTimerID) const
 	}
 
 	return true;
-}
-
-void CSleepServerTimer::destroyTimerItemPool()
-{
-	auto iter = _itemPool.begin();
-	auto iEnd = _itemPool.end();
-	for (; iter != iEnd; ++iter)
-	{
-		auto& item = *iter;
-		delete item;
-	}
-	_itemPool.clear();
 }
 
 void CSleepServerTimer::onThread()
@@ -177,7 +153,7 @@ void CSleepServerTimer::onThread()
 			continue;
 		}
 
-		std::this_thread::sleep_for(std::chrono::microseconds{micro_seconds});
+		std::this_thread::sleep_for(std::chrono::microseconds{ micro_seconds });
 
 		temps.clear();
 		currTime = GetSysMilliseconds() / s_iResolution * s_iResolution;
@@ -205,11 +181,8 @@ void CSleepServerTimer::onThread()
 
 		if (!temps.empty())
 		{
-			auto iter = temps.begin();
-			auto iEnd = temps.end();
-			for (; iter != iEnd; ++iter)
+			for (auto& item : temps)
 			{
-				auto& item = *iter;
 				if (_listener != nullptr)
 				{
 					_listener->OnTimer(item->iTimerID, item->iElapse);

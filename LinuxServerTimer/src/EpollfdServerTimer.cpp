@@ -31,7 +31,7 @@ static char* itimerspec_dump(struct itimerspec* ts)
 }
 
 CEpollfdServerTimer::CEpollfdServerTimer()
-	: _listener(nullptr), _running(false), _epoll_fd(-1)
+	: _listener(nullptr), _running(false), _epoll_fd(-1), _pool(100)
 {
 }
 
@@ -40,7 +40,6 @@ CEpollfdServerTimer::~CEpollfdServerTimer()
 //	KillAllTimer();
 	destroyEpoll();
 	destroyThread();
-	destroyTimerItemPool();
 }
 
 void CEpollfdServerTimer::RegisterListener(IServerTimerListener* pListener)
@@ -59,7 +58,7 @@ void CEpollfdServerTimer::Stop()
 	destroyThread();
 }
 
-void CEpollfdServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce)
+void CEpollfdServerTimer::SetTimer(timerid_t iTimerID, elapse_t iElapse, bool bShootOnce)
 {
 	if (isExistTimer(iTimerID))
 	{
@@ -75,16 +74,7 @@ void CEpollfdServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse, 
 
 	std::lock_guard<std::mutex> lk(_mutex);
 
-	ServerTimerItemPtr item = nullptr;
-	if (_itemPool.empty())
-	{
-		item = new ServerTimerItem();
-	}
-	else
-	{
-		item = _itemPool.back();
-		_itemPool.pop_back();
-	}
+	auto item = _pool.borrowObject();
 	assert(item);
 
 	item->iTimerFD = fd;
@@ -113,7 +103,7 @@ void CEpollfdServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse, 
 
 	struct epoll_event ev{};
 	ev.events = EPOLLIN;
-	ev.data.ptr = item;
+	ev.data.ptr = item.get();
 	if (::epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1)
 	{
 		printf("epoll_ctl(ADD) failed: errno=%d\n", errno);
@@ -121,7 +111,7 @@ void CEpollfdServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse, 
 	}
 }
 
-void CEpollfdServerTimer::KillTimer(unsigned int iTimerID)
+void CEpollfdServerTimer::KillTimer(timerid_t iTimerID)
 {
 	if (!isExistTimer(iTimerID))
 	{
@@ -140,7 +130,7 @@ void CEpollfdServerTimer::KillTimer(unsigned int iTimerID)
 	destroyTimerfd(_epoll_fd, item->iTimerFD);
 	item->clear();
 
-	_itemPool.push_back(item);
+	_pool.returnObject(item);
 	_items.erase(iter);
 }
 
@@ -155,12 +145,12 @@ void CEpollfdServerTimer::KillAllTimer()
 		auto& item = iter->second;
 		destroyTimerfd(_epoll_fd, item->iTimerFD);
 		item->clear();
-		_itemPool.push_back(item);
+		_pool.returnObject(item);
 	}
 	_items.clear();
 }
 
-bool CEpollfdServerTimer::isExistTimer(unsigned int iTimerID) const
+bool CEpollfdServerTimer::isExistTimer(timerid_t iTimerID) const
 {
 	std::lock_guard<std::mutex> lk(_mutex);
 
@@ -171,18 +161,6 @@ bool CEpollfdServerTimer::isExistTimer(unsigned int iTimerID) const
 	}
 
 	return true;
-}
-
-void CEpollfdServerTimer::destroyTimerItemPool()
-{
-	auto iter = _itemPool.begin();
-	auto iEnd = _itemPool.end();
-	for (; iter != iEnd; ++iter)
-	{
-		auto& item = *iter;
-		delete item;
-	}
-	_itemPool.clear();
 }
 
 bool CEpollfdServerTimer::createEpoll()
@@ -267,8 +245,8 @@ void CEpollfdServerTimer::onThread()
 	_evThreadStarted.set();
 
 	int iTimerFD = 0;
-	unsigned int iTimerID = 0;
-	unsigned int iElapse = 0;
+	timerid_t iTimerID = 0;
+	elapse_t iElapse = 0;
 	int fireEvents = 0;
 	ssize_t ret = 0;
 	uint64_t exp = 0;

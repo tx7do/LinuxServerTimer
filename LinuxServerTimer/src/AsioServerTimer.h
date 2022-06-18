@@ -1,33 +1,34 @@
 #pragma once
 
-
-#include "IServerTimer.h"
 #include <thread>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
 #include <atomic>
 #include <cstring>
-#include "Event.h"
 
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+
+#include "IServerTimer.h"
+#include "ObjectPool.h"
+#include "Event.h"
 
 
 //using atimer_t = boost::asio::steady_timer;
 using atimer_t = boost::asio::high_resolution_timer;
 using atimer_ptr = std::shared_ptr<atimer_t>;
 
-using elapse_t = std::chrono::milliseconds;
+using milliseconds = std::chrono::milliseconds;
 
 
 class CAsioServerTimer final : public IServerTimer
 {
 	struct ServerTimerItem
 	{
-		unsigned int iTimerID{ 0 };
-		elapse_t iElapse{ 0 };
+		timerid_t iTimerID{ 0 };
+		milliseconds iElapse{ 0 };
 		bool bShootOnce{ true };
 
 		atimer_ptr t{ nullptr };
@@ -40,9 +41,9 @@ class CAsioServerTimer final : public IServerTimer
 			if (t)t->cancel();
 		}
 	};
-	typedef ServerTimerItem* ServerTimerItemPtr;
-	typedef std::unordered_map<unsigned int, ServerTimerItemPtr> ServerTimerItemPtrMap;
-	typedef std::vector<ServerTimerItemPtr> ServerTimerItemPtrArray;
+	using ServerTimerItemPtr = std::shared_ptr<ServerTimerItem>;
+	using ServerTimerItemPtrMap = std::unordered_map<timerid_t, ServerTimerItemPtr>;
+	using ServerTimerItemPool = ObjectPool<ServerTimerItem, std::shared_ptr<ServerTimerItem>>;
 
 public:
 	CAsioServerTimer();
@@ -60,9 +61,9 @@ public:
 
 	void Stop() final;
 
-	void SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce) final;
+	void SetTimer(timerid_t iTimerID, elapse_t iElapse, bool bShootOnce) final;
 
-	void KillTimer(unsigned int iTimerID) final;
+	void KillTimer(timerid_t iTimerID) final;
 
 	void KillAllTimer() final;
 
@@ -74,10 +75,7 @@ protected:
 
 protected:
 	// 是否存在这个定时器
-	bool isExistTimer(unsigned int iTimerID) const;
-
-	// 销毁定时器池的项
-	void destroyTimerItemPool();
+	bool isExistTimer(timerid_t iTimerID) const;
 
 protected:
 	void onThread();
@@ -90,10 +88,9 @@ protected:
 	std::thread* _thread;
 	mutable std::mutex _mutex;
 	CEvent _evThreadStarted;
-	std::atomic<bool> _running;
 
+	ServerTimerItemPool _pool;
 	ServerTimerItemPtrMap _items;
-	ServerTimerItemPtrArray _itemPool;
 
 	IServerTimerListener* _listener;
 };

@@ -1,11 +1,12 @@
 #pragma once
 
+#include "linux_server_timer.h"
 #include <condition_variable>
 #include <mutex>
 #include <atomic>
 
 
-class CEvent final
+class LinuxServerTimer_API CEvent final
 {
 public:
 	enum EventType

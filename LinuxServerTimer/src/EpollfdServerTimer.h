@@ -1,15 +1,16 @@
 
 #pragma once
 
-#include "IServerTimer.h"
-
 #include <thread>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
 #include <atomic>
 #include <cstring>
+
+#include "IServerTimer.h"
 #include "Event.h"
+#include "ObjectPool.h"
 
 
 class CEpollfdServerTimer final : public IServerTimer
@@ -19,8 +20,8 @@ public:
 	{
 		int iTimerFD{};
 
-		unsigned int iTimerID{};
-		unsigned int iElapse{};
+		timerid_t iTimerID{};
+		elapse_t iElapse{};
 		bool bShootOnce{};
 
 		mutable std::mutex _mutex;
@@ -34,9 +35,9 @@ public:
 			bShootOnce = true;
 		}
 	};
-	typedef ServerTimerItem* ServerTimerItemPtr;
-	typedef std::unordered_map<unsigned int, ServerTimerItemPtr> ServerTimerItemPtrMap;
-	typedef std::vector<ServerTimerItemPtr> ServerTimerItemPtrArray;
+	using ServerTimerItemPtr = std::shared_ptr<ServerTimerItem>;
+	using ServerTimerItemPtrMap = std::unordered_map<timerid_t, ServerTimerItemPtr>;
+	using ServerTimerItemPool = ObjectPool<ServerTimerItem, std::shared_ptr<ServerTimerItem>>;
 
 public:
 	CEpollfdServerTimer();
@@ -55,18 +56,15 @@ public:
 	void Stop() final;
 
 public:
-	void SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce) final;
+	void SetTimer(timerid_t iTimerID, elapse_t iElapse, bool bShootOnce) final;
 
-	void KillTimer(unsigned int iTimerID) final;
+	void KillTimer(timerid_t iTimerID) final;
 
 	void KillAllTimer() final;
 
 protected:
 	// 是否存在这个定时器
-	bool isExistTimer(unsigned int iTimerID) const;
-
-	// 销毁定时器池的项
-	void destroyTimerItemPool();
+	bool isExistTimer(timerid_t iTimerID) const;
 
 private:
 	bool createEpoll();
@@ -88,8 +86,8 @@ private:
 
 	int _epoll_fd;
 
+	ServerTimerItemPool _pool;
 	ServerTimerItemPtrMap _items;
-	ServerTimerItemPtrArray _itemPool;
 
 	std::thread* _thread{};
 	mutable std::mutex _mutex;

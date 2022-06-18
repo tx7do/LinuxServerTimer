@@ -1,5 +1,10 @@
 #pragma once
 
+#include "linux_server_timer.h"
+
+using timerid_t = unsigned int;
+using elapse_t = unsigned int;
+
 
 /// 服务器定时器类型
 enum ServerTimerType
@@ -8,6 +13,7 @@ enum ServerTimerType
 	ServerTimerType_Epollfd = 2,// epollfd定时器
 	ServerTimerType_Sleep = 3,// Sleep定时器
 	ServerTimerType_Asio = 4,// Asio定时器
+	ServerTimerType_Libuv = 5,// libuv定时器
 };
 
 /// 服务器定时器监听器接口
@@ -19,7 +25,7 @@ public:
 	/// 定时器回调
 	/// @param iTimerID 定时器ID
 	/// @param iElapse 定时器触发时间
-	virtual void OnTimer(unsigned int iTimerID, unsigned int iElapse) = 0;
+	virtual void OnTimer(timerid_t iTimerID, elapse_t iElapse) = 0;
 };
 
 ///	服务器定时器接口
@@ -46,11 +52,11 @@ public:
 	/// @param[in] iTimerID 定时器ID
 	/// @param[in] iElapse 定时器触发时间，毫秒单位，大于100ms
 	/// @param[in] bShootOnce 是否只触发一次，true为触发一次,false为无限次触发
-	virtual void SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce) = 0;
+	virtual void SetTimer(timerid_t iTimerID, elapse_t iElapse, bool bShootOnce) = 0;
 
 	/// 杀掉一个定时器
 	/// @param iTimerID 定时器ID
-	virtual void KillTimer(unsigned int iTimerID) = 0;
+	virtual void KillTimer(timerid_t iTimerID) = 0;
 
 	/// 杀掉所有的定时器
 	virtual void KillAllTimer() = 0;
@@ -59,8 +65,8 @@ public:
 /// 创建服务器定时器实例
 /// @param type 定时器类型
 /// @return 销毁定时器实例的接口指针
-extern IServerTimer* CreateServerTimer(ServerTimerType type);
+extern LinuxServerTimer_API IServerTimer* CreateServerTimer(ServerTimerType type);
 
 /// 销毁定时器实例
 /// @param pIServerTimer 定时器实例的接口指针
-extern void DestroyServerTimer(IServerTimer*& pIServerTimer);
+extern LinuxServerTimer_API void DestroyServerTimer(IServerTimer*& pIServerTimer);

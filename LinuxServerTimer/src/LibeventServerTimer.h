@@ -1,9 +1,6 @@
 
 #pragma once
 
-#include "IServerTimer.h"
-#include "Event.h"
-
 #include <thread>
 #include <mutex>
 #include <unordered_map>
@@ -13,8 +10,10 @@
 #include <event2/event.h>
 #include <event2/event_struct.h>
 
-struct event_base;
-struct event;
+#include "IServerTimer.h"
+#include "Event.h"
+#include "ObjectPool.h"
+
 
 class CLibeventServerTimer final : public IServerTimer
 {
@@ -23,8 +22,8 @@ class CLibeventServerTimer final : public IServerTimer
 		CLibeventServerTimer* pParent{};
 		struct event* pEvent{};
 
-		unsigned int iTimerID{};
-		unsigned int iElapse{};
+		timerid_t iTimerID{};
+		elapse_t iElapse{};
 		bool bShootOnce{};
 
 		mutable std::mutex _mutex;
@@ -39,9 +38,9 @@ class CLibeventServerTimer final : public IServerTimer
 			bShootOnce = true;
 		}
 	};
-	typedef ServerTimerItem* ServerTimerItemPtr;
-	typedef std::unordered_map<unsigned int, ServerTimerItemPtr> ServerTimerItemPtrMap;
-	typedef std::vector<ServerTimerItemPtr> ServerTimerItemPtrArray;
+	using ServerTimerItemPtr = std::shared_ptr<ServerTimerItem>;
+	using ServerTimerItemPtrMap = std::unordered_map<timerid_t, ServerTimerItemPtr>;
+	using ServerTimerItemPool = ObjectPool<ServerTimerItem, std::shared_ptr<ServerTimerItem>>;
 
 public:
 	CLibeventServerTimer();
@@ -60,9 +59,9 @@ public:
 	void Stop() final;
 
 public:
-	void SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce) final;
+	void SetTimer(timerid_t iTimerID, elapse_t iElapse, bool bShootOnce) final;
 
-	void KillTimer(unsigned int iTimerID) final;
+	void KillTimer(timerid_t iTimerID) final;
 
 	void KillAllTimer() final;
 
@@ -79,10 +78,7 @@ protected:
 
 protected:
 	// 是否存在这个定时器
-	bool isExistTimer(unsigned int iTimerID) const;
-
-	// 销毁定时器池的项
-	void destroyTimerItemPool();
+	bool isExistTimer(timerid_t iTimerID) const;
 
 protected:
 	// 事件队列回调方法
@@ -92,7 +88,7 @@ protected:
 	void onThread();
 
 	// 定时器超时回调方法
-	void onTimeOut(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce);
+	void onTimeOut(timerid_t iTimerID, elapse_t iElapse, bool bShootOnce);
 
 private:
 	struct event_base* _base;
@@ -102,8 +98,8 @@ private:
 	CEvent _evThreadStarted;
 	std::atomic<bool> _running;
 
+	ServerTimerItemPool _pool;
 	ServerTimerItemPtrMap _items;
-	ServerTimerItemPtrArray _itemPool;
 
 	IServerTimerListener* _listener;
 };

@@ -8,18 +8,27 @@
 
 VS呢，我也用了十多年了，以前用VS+VA，用起来感觉还是很愉快的。但是在JetBrain全家桶面前，我发现它差的有点远。
 
-本项目封装了4种实现方式：
+本项目封装了5种实现方式：
 
 1. 使用sleep实现的低精度低性能定时器；
 2. 使用timerfd和epoll实现的高精度高性能定时器；  
 3. 使用libevent2实现的高精度高性能定时器；
 4. 使用boost::asio实现的高精度高性能定时器。
+5. 使用libuv实现的高精度高性能定时器。
 
 ## 安装依赖库
 
 ```bash
+# 安装libevent2
 sudo apt-get install libevent-dev
+
+# 安装boost
 sudo apt-get install libboost-all-dev
+# 安装独立版asio
+sudo apt-get install -y libasio-dev
+
+# 安装libuv
+sudo apt-get install libuv1-dev
 ```
 
 ## 使用方法

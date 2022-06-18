@@ -1,8 +1,7 @@
 ﻿
-#include "stdinc.h"
 #include "IServerTimer.h"
-#include "LibeventServerTimer.h"
 #include <chrono>
+#include <thread>
 #include <iomanip>
 #include "stopwatch.h"
 
@@ -15,8 +14,8 @@ class CServer final : public IServerTimerListener
 public:
 	CServer()
 	{
-		cout << "Hello CMake." << endl;
-		pITimer = CreateServerTimer(ServerTimerType_Asio);
+		std::cout << "Main Thread ID:" << std::this_thread::get_id() << std::endl;
+		pITimer = CreateServerTimer(ServerTimerType_Libuv);
 		pITimer->RegisterListener(this);
 	}
 	~CServer() final
@@ -32,11 +31,11 @@ public:
 		pITimer->Start();
 		std::cout << "finished start timer." << std::endl;
 
-		unsigned int iTimerID = 99;
-		unsigned int iElapse = 1000;
+		timerid_t iTimerID = 99;
+		elapse_t iElapse = 1000;
 		pITimer->SetTimer(iTimerID, iElapse, true);
 		iTimerID = 88;
-		pITimer->SetTimer(iTimerID, iElapse, false);
+//		pITimer->SetTimer(iTimerID, iElapse, false);
 
 		for (;;)
 		{
@@ -49,14 +48,15 @@ public:
 	}
 
 protected:
-	void OnTimer(unsigned int iTimerID, unsigned int iElapse) final
+	void OnTimer(timerid_t iTimerID, elapse_t iElapse) final
 	{
 		auto now = chrono::system_clock::now();
 		auto now_time = chrono::system_clock::to_time_t(now);
 
 		auto elapsed = duration_cast<double>(_stopwatch.tick());
 
-		std::cout << "[" << iTimerID << "] OnTimer: " << " "
+		std::cout << "[" << std::this_thread::get_id() << "]"
+				  << "[" << iTimerID << "] OnTimer: " << " "
 				  << std::put_time(std::localtime(&now_time), "%T ") << " "
 				  << setiosflags(ios::fixed) << setprecision(2) << elapsed
 				  << " seconds elapsed." << std::endl;

@@ -5,6 +5,7 @@
 #include "EpollfdServerTimer.h"
 #include "SleepServerTimer.h"
 #include "AsioServerTimer.h"
+#include "LibuvServerTimer.h"
 
 IServerTimer* CreateServerTimer(ServerTimerType type)
 {
@@ -21,6 +22,9 @@ IServerTimer* CreateServerTimer(ServerTimerType type)
 		break;
 	case ServerTimerType_Asio:
 		return new CAsioServerTimer();
+		break;
+	case ServerTimerType_Libuv:
+		return new CLibuvServerTimer();
 		break;
 	}
 	return nullptr;

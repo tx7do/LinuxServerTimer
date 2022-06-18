@@ -4,7 +4,7 @@
 using error_code = boost::system::error_code;
 
 CAsioServerTimer::CAsioServerTimer()
-	: _thread(nullptr), _running(false), _listener(nullptr)
+	: _thread(nullptr), _listener(nullptr), _pool(100)
 {
 }
 
@@ -12,7 +12,6 @@ CAsioServerTimer::~CAsioServerTimer()
 {
 	stopThread();
 	KillAllTimer();
-	destroyTimerItemPool();
 }
 
 void CAsioServerTimer::RegisterListener(IServerTimerListener* pListener)
@@ -30,14 +29,12 @@ void CAsioServerTimer::Stop()
 {
 	_ioc.stop();
 
-	_running = false;
-
 	stopThread();
 
 	KillAllTimer();
 }
 
-void CAsioServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce)
+void CAsioServerTimer::SetTimer(timerid_t iTimerID, elapse_t iElapse, bool bShootOnce)
 {
 	if (isExistTimer(iTimerID))
 	{
@@ -46,16 +43,7 @@ void CAsioServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse, boo
 
 	std::lock_guard<std::mutex> lk(_mutex);
 
-	ServerTimerItemPtr item = nullptr;
-	if (_itemPool.empty())
-	{
-		item = new ServerTimerItem();
-	}
-	else
-	{
-		item = _itemPool.back();
-		_itemPool.pop_back();
-	}
+	auto item = _pool.borrowObject();
 	assert(item);
 
 	if (item->t == nullptr)
@@ -63,10 +51,10 @@ void CAsioServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse, boo
 		item->t = std::make_shared<atimer_t>(_ioc);
 	}
 
-	item->t->expires_after(elapse_t(iElapse));
+	item->t->expires_after(milliseconds(iElapse));
 
 	item->iTimerID = iTimerID;
-	item->iElapse = elapse_t(iElapse);
+	item->iElapse = milliseconds(iElapse);
 	item->bShootOnce = bShootOnce;
 	_items[iTimerID] = item;
 
@@ -76,7 +64,7 @@ void CAsioServerTimer::SetTimer(unsigned int iTimerID, unsigned int iElapse, boo
 	});
 }
 
-void CAsioServerTimer::KillTimer(unsigned int iTimerID)
+void CAsioServerTimer::KillTimer(timerid_t iTimerID)
 {
 	if (!isExistTimer(iTimerID))
 	{
@@ -94,7 +82,7 @@ void CAsioServerTimer::KillTimer(unsigned int iTimerID)
 	auto& item = iter->second;
 	item->cancel();
 
-	_itemPool.push_back(item);
+	_pool.returnObject(item);
 	_items.erase(iter);
 }
 
@@ -108,7 +96,7 @@ void CAsioServerTimer::KillAllTimer()
 	{
 		auto& item = iter->second;
 		item->cancel();
-		_itemPool.push_back(item);
+		_pool.returnObject(item);
 	}
 	_items.clear();
 }
@@ -117,8 +105,6 @@ void CAsioServerTimer::startThread()
 {
 	if (_thread == nullptr)
 	{
-		_running = true;
-
 		_thread = new std::thread(&CAsioServerTimer::onThread, this);
 		assert(_thread);
 		_evThreadStarted.wait();
@@ -127,7 +113,6 @@ void CAsioServerTimer::startThread()
 
 void CAsioServerTimer::stopThread()
 {
-	_running = false;
 	if (_thread != nullptr)
 	{
 		_thread->join();
@@ -136,7 +121,7 @@ void CAsioServerTimer::stopThread()
 	}
 }
 
-bool CAsioServerTimer::isExistTimer(unsigned int iTimerID) const
+bool CAsioServerTimer::isExistTimer(timerid_t iTimerID) const
 {
 	std::lock_guard<std::mutex> lk(_mutex);
 
@@ -147,18 +132,6 @@ bool CAsioServerTimer::isExistTimer(unsigned int iTimerID) const
 	}
 
 	return true;
-}
-
-void CAsioServerTimer::destroyTimerItemPool()
-{
-	auto iter = _itemPool.begin();
-	auto iEnd = _itemPool.end();
-	for (; iter != iEnd; ++iter)
-	{
-		auto& item = *iter;
-		delete item;
-	}
-	_itemPool.clear();
 }
 
 void CAsioServerTimer::onThread()

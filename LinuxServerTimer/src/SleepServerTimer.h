@@ -1,13 +1,14 @@
 #pragma once
 
-#include "IServerTimer.h"
-
 #include <thread>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
 #include <atomic>
+
+#include "IServerTimer.h"
 #include "Event.h"
+#include "ObjectPool.h"
 
 
 class CSleepServerTimer final : public IServerTimer
@@ -15,9 +16,9 @@ class CSleepServerTimer final : public IServerTimer
 public:
 	struct ServerTimerItem
 	{
-		unsigned int iTimerID{};
-		unsigned int iElapse{};    // 定时器间隔（单位毫秒）
-		long long iStartTime{};    // 起始时间（单位毫秒）
+		timerid_t iTimerID{};
+		elapse_t iElapse{};    // 定时器间隔（单位毫秒）
+		time_t iStartTime{};    // 起始时间（单位毫秒）
 		bool bShootOnce{};
 
 		ServerTimerItem() = default;
@@ -29,9 +30,10 @@ public:
 			bShootOnce = true;
 		}
 	};
-	typedef ServerTimerItem* ServerTimerItemPtr;
-	typedef std::unordered_map<unsigned int, ServerTimerItemPtr> ServerTimerItemPtrMap;
-	typedef std::vector<ServerTimerItemPtr> ServerTimerItemPtrArray;
+	using ServerTimerItemPtr = std::shared_ptr<ServerTimerItem>;
+	using ServerTimerItemPtrMap = std::unordered_map<timerid_t, ServerTimerItemPtr>;
+	using ServerTimerItemPtrArray = std::vector<ServerTimerItemPtr>;
+	using ServerTimerItemPool = ObjectPool<ServerTimerItem, std::shared_ptr<ServerTimerItem>>;
 
 public:
 	CSleepServerTimer();
@@ -49,9 +51,9 @@ public:
 
 	void Stop() final;
 
-	void SetTimer(unsigned int iTimerID, unsigned int iElapse, bool bShootOnce) final;
+	void SetTimer(timerid_t iTimerID, elapse_t iElapse, bool bShootOnce) final;
 
-	void KillTimer(unsigned int iTimerID) final;
+	void KillTimer(timerid_t iTimerID) final;
 
 	void KillAllTimer() final;
 
@@ -61,10 +63,7 @@ protected:
 
 protected:
 	// 是否存在这个定时器
-	bool isExistTimer(unsigned int iTimerID) const;
-
-	// 销毁定时器池的项
-	void destroyTimerItemPool();
+	bool isExistTimer(timerid_t iTimerID) const;
 
 protected:
 	void onThread();
@@ -77,8 +76,8 @@ private:
 	CEvent _evThreadWait;
 	CEvent _evThreadStarted;
 
+	ServerTimerItemPool _pool;
 	ServerTimerItemPtrMap _items;
-	ServerTimerItemPtrArray _itemPool;
 
 private:
 	static time_t s_iResolution;        ///< 延时的精度，单位：毫秒
